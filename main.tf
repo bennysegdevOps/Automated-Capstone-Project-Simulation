@@ -85,7 +85,7 @@ resource "aws_route_table" "eu-2-publicRT" {
   vpc_id = aws_vpc.vpc.id
 
   route {
-    cidr_block = "0.0.0.0/0"
+    cidr_block = var.all_traffic_cidr
     gateway_id = aws_internet_gateway.igw.id
   }
 }
@@ -95,7 +95,7 @@ resource "aws_route_table" "eu-2-privateRT" {
   vpc_id = aws_vpc.vpc.id
 
   route {
-    cidr_block = "0.0.0.0/0"
+    cidr_block = var.all_traffic_cidr
     gateway_id = aws_nat_gateway.ngw.id
   }
 }
@@ -132,30 +132,30 @@ resource "aws_security_group" "Team2-capstone-sg-frontend" {
 
   ingress {
     description = "SSH from VPC"
-    from_port   = 22
-    to_port     = 22
+    from_port   = var.ssh_port
+    to_port     = var.ssh_port
     protocol    = "tcp"
-    cidr_blocks  = ["0.0.0.0/0"]
+    cidr_blocks  = [var.all_traffic_cidr]
   }
   ingress {
     description = "HTTPS from VPC"
-    from_port   = 443
-    to_port     = 443
+    from_port   = var.https_port
+    to_port     = var.https_port
     protocol    = "tcp"
-    cidr_blocks  = ["0.0.0.0/0"]
+    cidr_blocks  = [var.all_traffic_cidr]
   }
   ingress {
     description = "HTTP from VPC"
-    from_port   = 80
-    to_port     = 80
+    from_port   = var.http_port
+    to_port     = var.http_port
     protocol    = "tcp"
-    cidr_blocks  = ["0.0.0.0/0"]
+    cidr_blocks  = [var.all_traffic_cidr]
   }
   egress {
     from_port  = 0
     to_port    = 0
     protocol   = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.all_traffic_cidr]
   }
   tags = {
     name = "${local.name}-sg-frontend"
@@ -170,16 +170,16 @@ resource "aws_security_group" "capstone-sg-backend" {
 
   ingress {
     description = "mysql access"
-    from_port   = 3306
-    to_port     = 3306
+    from_port   = var.mysql_port
+    to_port     = var.mysql_port
     protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24", "10.0.2.0/24"]
+    cidr_blocks = [var.private_subnet1_cidr , var.private_subnet2_cidr]
   }
   egress {
     from_port  = 0
     to_port    = 0
     protocol   = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.all_traffic_cidr]
   }
   tags = {
     name = "${local.name}-sg-backend"

@@ -48,6 +48,30 @@ variable "private_subnet2_cidr" {
   default = "10.0.4.0/24"
 }
 
+# all traffic cidr block
+variable "all_traffic_cidr" {
+  default = "0.0.0.0/0"
+}
+
+# ssh port 
+variable "ssh_port" {
+  default = "22"
+}
+
+# https port
+variable "https_port" {
+  default = "443"
+}
+
+# http port
+variable "http_port" {
+  default = "80"
+}
+
+# mysql port
+variable "mysql_port" {
+  default = "3306"
+}
 # webserver ami
 variable "ami_webserver" {
   default = "ami-0ca5ef73451e16dc1"
