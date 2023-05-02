@@ -965,7 +965,7 @@ resource "aws_cloudwatch_dashboard" "main2" {
 # Creating Load balancer Listener
 resource "aws_lb_listener" "eu2acp_lb_listener" {
   load_balancer_arn = aws_lb.eu2acp_alb.arn
-  port              = "80"
+  port              = var.http_port
   protocol          = "HTTP"
 
   default_action {
