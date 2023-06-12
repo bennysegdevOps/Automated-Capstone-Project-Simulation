@@ -25,7 +25,7 @@ variable "public_subnet1_cidr" {
 
 # availability zone public subnet 1
 variable "az1" {
-  default = "eu-west-3a"
+  default = "eu-west-1a"
 }
 
 # public subnet-2 cidr block
@@ -35,7 +35,7 @@ variable "public_subnet2_cidr" {
 
 # availability zone public subnet 2
 variable "az2" {
-  default = "eu-west-3b"
+  default = "eu-west-1b"
 }
 
 # private subnet-1 cidr block
@@ -74,12 +74,12 @@ variable "mysql_port" {
 }
 # webserver ami
 variable "ami_webserver" {
-  default = "ami-0ca5ef73451e16dc1"
+  default = "ami-04b1c88a6bbd48f8e"
 }
 
 # webserver instance type
 variable "instance_type" {
-  default = "t3.medium"
+  default = "t2.micro"
 }
 
 # database name
