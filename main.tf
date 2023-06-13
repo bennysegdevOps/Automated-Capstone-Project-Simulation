@@ -389,38 +389,8 @@ resource "aws_s3_bucket" "media-bucket" {
   }
 }
 
-# create s3 log bucket  
-resource "aws_s3_bucket" "log-bucket" {
-  bucket = "log-bucket-eu2"
-  force_destroy = true
-
-  tags = {
-    Name        = "${local.name}-log-bucket"
-  }
-}
-
-# Create S3 code Bucket 
-resource "aws_s3_bucket" "code-bucket" {
-  bucket        = "code-bucket-eu2"
-  force_destroy = true
-
-  tags = {
-    Name = "${local.name}-code-bucket"
-  }
-}
-
 resource "aws_s3_bucket_public_access_block" "media_access" {
   bucket = aws_s3_bucket.media-bucket.id
-
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
-}
-
-
-resource "aws_s3_bucket_public_access_block" "log_access" {
-  bucket = aws_s3_bucket.log-bucket.id
 
   block_public_acls       = false
   block_public_policy     = false
@@ -452,6 +422,25 @@ data "aws_iam_policy_document" "allow_access_to_media_bucket" {
       "${aws_s3_bucket.media-bucket.arn}/*",
     ]
   }
+}
+
+# create s3 log bucket  
+resource "aws_s3_bucket" "log-bucket" {
+  bucket = "log-bucket-eu2"
+  force_destroy = true
+
+  tags = {
+    Name        = "${local.name}-log-bucket"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "log_access" {
+  bucket = aws_s3_bucket.log-bucket.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
 }
 
 #create access to log bucket
@@ -498,45 +487,15 @@ resource "aws_s3_bucket_acl" "log_acl" {
   acl    = "private"
 }
 
-# # Create log bucket policy
-# resource "aws_s3_bucket_policy" "log-bucket" {
-#   bucket = aws_s3_bucket.log-bucket.id
-#   policy = jsonencode({
-#     Id = "logBucketPolicy"
-#     Statement = [
-#       {
-#         Action = ["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject"]
-#         Effect = "allow"
-#         Principal = {
-#           AWS = "*"
-#         }
-#         Resource = "arn:aws:s3:::log-bucket-eu2/*"
-#         Sid      = "PublicReadGetObject"
-#       }
-#     ]
-#     Version = "2012-10-17"
-#   })
-# }
+# Create S3 code Bucket 
+resource "aws_s3_bucket" "code-bucket" {
+  bucket        = "code-bucket-eu2"
+  force_destroy = true
 
-# # creating media bucket policy
-# resource "aws_s3_bucket_policy" "media-bucket" {
-#   bucket = aws_s3_bucket.media-bucket.id
-#   policy = jsonencode({
-#     Id = "mediaBucketPolicy"
-#     Statement = [
-#       {
-#         Action = ["s3:GetObject", "s3:GetObjectVersion"]
-#         Effect = "allow"
-#         Principal = {
-#           AWS = "*"
-#         }
-#         Resource = "arn:aws:s3:::media-bucket-eu2/*"
-#         Sid      = "PublicReadGetObject"
-#       }
-#     ]
-#     Version = "2012-10-17"
-#   })
-# }
+  tags = {
+    Name = "${local.name}-code-bucket"
+  }
+}
 
 data "aws_cloudfront_distribution" "cloudfront" {
   id = aws_cloudfront_distribution.s3_distribution.id
