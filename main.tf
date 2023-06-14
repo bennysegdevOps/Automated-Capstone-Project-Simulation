@@ -65,7 +65,7 @@ resource "aws_internet_gateway" "igw" {
 
 # Create elastic ip
 resource "aws_eip" "eip" {
-  vpc = true
+  domain   = "vpc"
 }
 
 #create a nat gateway
@@ -389,38 +389,8 @@ resource "aws_s3_bucket" "media-bucket" {
   }
 }
 
-# create s3 log bucket  
-resource "aws_s3_bucket" "log-bucket" {
-  bucket = "log-bucket-eu2"
-  force_destroy = true
-
-  tags = {
-    Name        = "${local.name}-log-bucket"
-  }
-}
-
-# Create S3 code Bucket 
-resource "aws_s3_bucket" "code-bucket" {
-  bucket        = "code-bucket-eu2"
-  force_destroy = true
-
-  tags = {
-    Name = "${local.name}-code-bucket"
-  }
-}
-
 resource "aws_s3_bucket_public_access_block" "media_access" {
   bucket = aws_s3_bucket.media-bucket.id
-
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
-}
-
-
-resource "aws_s3_bucket_public_access_block" "log_access" {
-  bucket = aws_s3_bucket.log-bucket.id
 
   block_public_acls       = false
   block_public_policy     = false
@@ -452,6 +422,25 @@ data "aws_iam_policy_document" "allow_access_to_media_bucket" {
       "${aws_s3_bucket.media-bucket.arn}/*",
     ]
   }
+}
+
+# create s3 log bucket  
+resource "aws_s3_bucket" "log-bucket" {
+  bucket = "log-bucket-eu2"
+  force_destroy = true
+
+  tags = {
+    Name        = "${local.name}-log-bucket"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "log_access" {
+  bucket = aws_s3_bucket.log-bucket.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
 }
 
 #create access to log bucket
@@ -498,45 +487,15 @@ resource "aws_s3_bucket_acl" "log_acl" {
   acl    = "private"
 }
 
-# # Create log bucket policy
-# resource "aws_s3_bucket_policy" "log-bucket" {
-#   bucket = aws_s3_bucket.log-bucket.id
-#   policy = jsonencode({
-#     Id = "logBucketPolicy"
-#     Statement = [
-#       {
-#         Action = ["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject"]
-#         Effect = "allow"
-#         Principal = {
-#           AWS = "*"
-#         }
-#         Resource = "arn:aws:s3:::log-bucket-eu2/*"
-#         Sid      = "PublicReadGetObject"
-#       }
-#     ]
-#     Version = "2012-10-17"
-#   })
-# }
+# Create S3 code Bucket 
+resource "aws_s3_bucket" "code-bucket" {
+  bucket        = "code-bucket-eu2"
+  force_destroy = true
 
-# # creating media bucket policy
-# resource "aws_s3_bucket_policy" "media-bucket" {
-#   bucket = aws_s3_bucket.media-bucket.id
-#   policy = jsonencode({
-#     Id = "mediaBucketPolicy"
-#     Statement = [
-#       {
-#         Action = ["s3:GetObject", "s3:GetObjectVersion"]
-#         Effect = "allow"
-#         Principal = {
-#           AWS = "*"
-#         }
-#         Resource = "arn:aws:s3:::media-bucket-eu2/*"
-#         Sid      = "PublicReadGetObject"
-#       }
-#     ]
-#     Version = "2012-10-17"
-#   })
-# }
+  tags = {
+    Name = "${local.name}-code-bucket"
+  }
+}
 
 data "aws_cloudfront_distribution" "cloudfront" {
   id = aws_cloudfront_distribution.s3_distribution.id
@@ -590,6 +549,31 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 }
 
+# Creating Target Group
+resource "aws_lb_target_group" "target_group" {
+  name_prefix      = "alb-tg"
+  port             = var.http_port
+  protocol         = "HTTP"
+  vpc_id           = aws_vpc.vpc.id
+
+  health_check {
+    interval            = 60
+    path                = "/indextest.html"
+    port                = var.http_port
+    protocol            = "HTTP"
+    timeout             = 30
+    healthy_threshold   = 3
+    unhealthy_threshold = 5
+  }
+}
+
+# Target Group Attachment
+resource "aws_lb_target_group_attachment" "target_group_att" {
+  target_group_arn = aws_lb_target_group.target_group.arn
+  target_id        = aws_instance.wordpress_webserver.id
+  port             = var.http_port
+}
+
 # Creating Application Load balancer
 resource "aws_lb" "eu2acp_alb" {
   name               = "eu2acp-alb"
@@ -610,28 +594,41 @@ resource "aws_lb" "eu2acp_alb" {
   }
 }
 
-#creating ami from ec2 instance-webserver for snapshot/duplication purposes
-resource "aws_ami_from_instance" "webserver_instance_ami" {
-  name               = "webserver_instance_ami"
-  source_instance_id = aws_instance.wordpress_webserver.id
-  snapshot_without_reboot = true
-  depends_on = [aws_instance.wordpress_webserver, time_sleep.EC2_wait_time]
-}
+# Creating Load balancer Listener
+resource "aws_lb_listener" "eu2acp_lb_listener" {
+  load_balancer_arn = aws_lb.eu2acp_alb.arn
+  port              = var.http_port
+  protocol          = "HTTP"
 
-resource "time_sleep" "EC2_wait_time" {
-  depends_on = [aws_instance.wordpress_webserver]
-  create_duration = "300s"
+  default_action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.target_group.arn
+    }
+  }
+  
+# Creating a Load balancer Listener for https access
+resource "aws_lb_listener" "eu2acp_lb_listener1" {
+  load_balancer_arn = aws_lb.eu2acp_alb.arn
+  port              = var.https_port
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = "${aws_acm_certificate.acm_certificate.arn}"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.target_group.arn
+  }
 }
 
 #Importing hosted zone
 data "aws_route53_zone" "project_zone" {
-  name         = "thinkeod.com"
+  name         = "wehabot.com"
   private_zone = false
 }
 #Create A record 
 resource "aws_route53_record" "thinkeod" {
   zone_id = data.aws_route53_zone.project_zone.zone_id
-  name    = "thinkeod.com"
+  name    = "wehabot.com"
   type    = "A"
 
   alias {
@@ -643,8 +640,8 @@ resource "aws_route53_record" "thinkeod" {
 
 #create acm certificate
 resource "aws_acm_certificate" "acm_certificate" {
-  domain_name       = "thinkeod.com"
-  # subject_alternative_names = ["*.thinkeod.com"]
+  domain_name       = "wehabot.com"
+  # subject_alternative_names = ["*.wehabot.com"]
   validation_method = "DNS"
   lifecycle {
     create_before_destroy = true
@@ -675,11 +672,24 @@ resource "aws_acm_certificate_validation" "acm_certificate_validation" {
   validation_record_fqdns = [for record in aws_route53_record.wordpress_record : record.fqdn]
 }
 
+#creating ami from ec2 instance-webserver for snapshot/duplication purposes
+resource "aws_ami_from_instance" "webserver_instance_ami" {
+  name               = "webserver_instance_ami"
+  source_instance_id = aws_instance.wordpress_webserver.id
+  snapshot_without_reboot = true
+  depends_on = [aws_instance.wordpress_webserver, time_sleep.EC2_wait_time]
+}
+
+resource "time_sleep" "EC2_wait_time" {
+  depends_on = [aws_instance.wordpress_webserver]
+  create_duration = "300s"
+}
+
 #create launch configuration
 resource "aws_launch_configuration" "web_config" {
   name          = "web_config"
   image_id      = aws_ami_from_instance.webserver_instance_ami.id
-  instance_type = "t3.medium"
+  instance_type = var.instance_type
   associate_public_ip_address = true
   iam_instance_profile = aws_iam_instance_profile.iam-instance-profile.id
   security_groups = [aws_security_group.Team2-capstone-sg-frontend.id]
@@ -756,31 +766,6 @@ resource "aws_cloudwatch_metric_alarm" "ec2_cpu_alarm" {
   alarm_actions     = [aws_sns_topic.eu2acp-sns-alarm.arn]
 }
 
-# Creating Target Group
-resource "aws_lb_target_group" "target_group" {
-  name_prefix      = "alb-tg"
-  port             = var.http_port
-  protocol         = "HTTP"
-  vpc_id           = aws_vpc.vpc.id
-
-  health_check {
-    interval            = 60
-    path                = "/indextest.html"
-    port                = var.http_port
-    protocol            = "HTTP"
-    timeout             = 30
-    healthy_threshold   = 3
-    unhealthy_threshold = 5
-  }
-}
-
-# Target Group Attachment
-resource "aws_lb_target_group_attachment" "target_group_att" {
-  target_group_arn = aws_lb_target_group.target_group.arn
-  target_id        = aws_instance.wordpress_webserver.id
-  port             = var.http_port
-}
-
 # SNS Alarm topic 
 resource "aws_sns_topic" "eu2acp-sns-alarm" {
   name            = "eu2acp-sns-alarm"
@@ -805,7 +790,7 @@ resource "aws_sns_topic" "eu2acp-sns-alarm" {
 EOF
 }
 locals {
-emails = ["michael.edima@cloudhight.com"]
+emails = ["olusegun.odede@cloudhight.com"]
 }
 
 # sns topic subscription 
@@ -900,7 +885,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
           period = 300
           stat   = "Average"
-          region = "eu-west-3"
+          region = "eu-west-1"
           title  = "Average CPU Utilization Asg"
         }
       },
@@ -960,30 +945,4 @@ resource "aws_cloudwatch_dashboard" "main2" {
       }
     ]
   })
-}
-
-# Creating Load balancer Listener
-resource "aws_lb_listener" "eu2acp_lb_listener" {
-  load_balancer_arn = aws_lb.eu2acp_alb.arn
-  port              = var.http_port
-  protocol          = "HTTP"
-
-  default_action {
-    type = "forward"
-    target_group_arn = aws_lb_target_group.target_group.arn
-    }
-  }
-  
-# Creating a Load balancer Listener for https access
-resource "aws_lb_listener" "eu2acp_lb_listener1" {
-  load_balancer_arn = aws_lb.eu2acp_alb.arn
-  port              = var.https_port
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = "${aws_acm_certificate.acm_certificate.arn}"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.target_group.arn
-  }
 }
