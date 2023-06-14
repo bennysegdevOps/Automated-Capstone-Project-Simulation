@@ -606,19 +606,19 @@ resource "aws_lb_listener" "eu2acp_lb_listener" {
     }
   }
   
-# Creating a Load balancer Listener for https access
-resource "aws_lb_listener" "eu2acp_lb_listener1" {
-  load_balancer_arn = aws_lb.eu2acp_alb.arn
-  port              = var.https_port
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = "${aws_acm_certificate.acm_certificate.arn}"
+# # Creating a Load balancer Listener for https access
+# resource "aws_lb_listener" "eu2acp_lb_listener1" {
+#   load_balancer_arn = aws_lb.eu2acp_alb.arn
+#   port              = var.https_port
+#   protocol          = "HTTPS"
+#   ssl_policy        = "ELBSecurityPolicy-2016-08"
+#   certificate_arn   = "${aws_acm_certificate.acm_certificate.arn}"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.target_group.arn
-  }
-}
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.target_group.arn
+#   }
+# }
 
 #Importing hosted zone
 data "aws_route53_zone" "project_zone" {
@@ -638,39 +638,39 @@ resource "aws_route53_record" "thinkeod" {
   }
 }
 
-#create acm certificate
-resource "aws_acm_certificate" "acm_certificate" {
-  domain_name       = "wehabot.com"
-  # subject_alternative_names = ["*.wehabot.com"]
-  validation_method = "DNS"
-  lifecycle {
-    create_before_destroy = true
-  }
-}
+# #create acm certificate
+# resource "aws_acm_certificate" "acm_certificate" {
+#   domain_name       = "wehabot.com"
+#   # subject_alternative_names = ["*.wehabot.com"]
+#   validation_method = "DNS"
+#   lifecycle {
+#     create_before_destroy = true
+#   }
+# }
 
-#create route53 validation record
-resource "aws_route53_record" "wordpress_record" {
-  for_each = {
-    for dvo in aws_acm_certificate.acm_certificate.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
+# #create route53 validation record
+# resource "aws_route53_record" "wordpress_record" {
+#   for_each = {
+#     for dvo in aws_acm_certificate.acm_certificate.domain_validation_options : dvo.domain_name => {
+#       name   = dvo.resource_record_name
+#       record = dvo.resource_record_value
+#       type   = dvo.resource_record_type
+#     }
+#   }
 
-  allow_overwrite = true
-  name            = each.value.name
-  records         = [each.value.record]
-  ttl             = 60
-  type            = each.value.type
-  zone_id         = data.aws_route53_zone.project_zone.zone_id
-}
+#   allow_overwrite = true
+#   name            = each.value.name
+#   records         = [each.value.record]
+#   ttl             = 60
+#   type            = each.value.type
+#   zone_id         = data.aws_route53_zone.project_zone.zone_id
+# }
 
-#create acm certificate validition
-resource "aws_acm_certificate_validation" "acm_certificate_validation" {
-  certificate_arn         = aws_acm_certificate.acm_certificate.arn
-  validation_record_fqdns = [for record in aws_route53_record.wordpress_record : record.fqdn]
-}
+# #create acm certificate validition
+# resource "aws_acm_certificate_validation" "acm_certificate_validation" {
+#   certificate_arn         = aws_acm_certificate.acm_certificate.arn
+#   validation_record_fqdns = [for record in aws_route53_record.wordpress_record : record.fqdn]
+# }
 
 #creating ami from ec2 instance-webserver for snapshot/duplication purposes
 resource "aws_ami_from_instance" "webserver_instance_ami" {

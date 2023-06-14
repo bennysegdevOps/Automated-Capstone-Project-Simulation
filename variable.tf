@@ -74,7 +74,7 @@ variable "mysql_port" {
 }
 # webserver ami
 variable "ami_webserver" {
-  default = "ami-04b1c88a6bbd48f8e"
+  default = "ami-00b1c9efd33fda707"
 }
 
 # webserver instance type
